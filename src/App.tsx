@@ -11,6 +11,19 @@ type CheckResponse = {
   otp?: string
 }
 
+/** Nội dung Cấp 1 — hiển thị lần lượt trong popup để khách đọc hết */
+const AGENT_FIRST_LINES = [
+  'Tài khoản chưa đủ điều kiện để sử dụng phần mềm TOOL soi lá bài 6.0.',
+  'Vui lòng nạp cho cứng sử dụng tài khoản các điều kiện sau đây:',
+  'TỔNG NẠP TÀI KHOẢN MM88 CẦN NẠP < 1.000.000 VNĐ',
+  'TỔNG CƯỢC < 2.400.000 VNĐ',
+  'SỐ LẦN NẠP TRÊN 5 LẦN',
+  'Khi tài khoản đã đủ điều kiện hệ thống robot 6.0 sẽ mở ra và bạn có thể sử dụng TOOL SOI LÁ BÀI 6.0 VÔ THỜI HẠN.',
+  'Chú ý: Tool chỉ áp dụng soi 10 ván bài / 1 ngày.',
+]
+
+const AGENT_FIRST_REVEAL_MS = 880
+
 function App() {
   const [isChecking, setIsChecking] = useState(false)
   const [progress, setProgress] = useState(0)
@@ -27,6 +40,7 @@ function App() {
   const [nextStep, setNextStep] = useState<'otp' | 'result' | null>(null)
   const [showProcessing, setShowProcessing] = useState(false)
   const [processingProgress, setProcessingProgress] = useState(0)
+  const [agentFirstVisibleLines, setAgentFirstVisibleLines] = useState(0)
 
   const normalizedType = useMemo(() => {
     const type = (checkResult?.type ?? 'safe').toLowerCase()
@@ -37,17 +51,31 @@ function App() {
 
   const isAgentType = () => normalizedType === 'agent-first' || normalizedType === 'agent-second'
 
+  const isAgentFirst = normalizedType === 'agent-first'
+  const agentFirstRevealDone =
+    isAgentFirst && agentFirstVisibleLines >= AGENT_FIRST_LINES.length
+
+  useEffect(() => {
+    if (!showResult || !isAgentFirst) {
+      setAgentFirstVisibleLines(0)
+      return
+    }
+    setAgentFirstVisibleLines(1)
+    let lineCount = 1
+    const id = window.setInterval(() => {
+      if (lineCount >= AGENT_FIRST_LINES.length) {
+        window.clearInterval(id)
+        return
+      }
+      lineCount += 1
+      setAgentFirstVisibleLines(lineCount)
+    }, AGENT_FIRST_REVEAL_MS)
+    return () => window.clearInterval(id)
+  }, [showResult, isAgentFirst])
+
   const getResultPillContent = () => {
     if (normalizedType === 'agent-first') {
-      return (
-        <>
-          TÀI KHOẢN CỦA BẠN CHƯA CỨNG
-          <br />
-          DỄ BỊ NHÀ CÁI SOI. CẦN NẠP RÚT THÊM 5 LẦN
-          <br />
-          ĐỂ TÀI KHOẢN HOẠT ĐỘNG BÌNH THƯỜNG!
-        </>
-      )
+      return <></>
     }
     if (normalizedType === 'agent-second') {
       return (
@@ -305,7 +333,7 @@ function App() {
 
             <div className="social-icons">
               <a
-                href="https://t.me/TONTON2026VIP"
+                href="https://t.me/nguoidanloibcr1990"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="social-pill social-pill--telegram"
@@ -320,11 +348,11 @@ function App() {
                 >
                   <path d="M21.5 4.5L2.7 11.1c-1.1.4-1.1 1.1-.2 1.4l5.1 1.6 1.9 5.8c.3.8.7.9 1.4.6l2.6-1.9 5.5 4c1 .6 1.7.3 1.9-1l3.5-16.5c.3-1.6-.6-2.3-1.7-1.8zM17.7 7.3l-9.8 9.2c-.4.4-.7.5-1 .3l2.6-7.7.01-.02c.01-.01.02-.03.03-.04l10.1-6.3c.5-.3.5-.06.06.24z" />
                 </svg>
-                Telegram
+                @nguoidanloibcr1990
               </a>
 
               <a
-                href="https://www.facebook.com/profile.php?id=100079535651669"
+                href="https://www.facebook.com/profile.php?id=61584679542186"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="social-pill social-pill--facebook"
@@ -407,7 +435,9 @@ function App() {
       {showResult && (
         <div className="result-overlay" onClick={handleCloseResult}>
           <div
-            className={`result-modal ${isAgentType() ? 'result-modal-danger' : ''}`}
+            className={`result-modal ${isAgentType() ? 'result-modal-danger' : ''} ${
+              isAgentFirst ? 'result-modal--agent-first' : ''
+            }`}
             onClick={(e) => {
               e.stopPropagation()
             }}
@@ -443,15 +473,34 @@ function App() {
 
             {checkResult && !apiError && (
               <>
-                <div className={`result-pill ${isAgentType() ? 'result-pill-danger' : ''}`}>
-                  <span className="result-pill-text">{getResultPillContent()}</span>
+                <div
+                  className={`result-pill ${isAgentType() ? 'result-pill-danger' : ''} ${
+                    isAgentFirst ? 'result-pill--agent-first' : ''
+                  }`}
+                >
+                  {isAgentFirst ? (
+                    <div className="result-pill-lines" aria-live="polite">
+                      {AGENT_FIRST_LINES.slice(0, agentFirstVisibleLines).map((line, idx) => (
+                        <p key={`${idx}-${line.slice(0, 24)}`} className="result-pill-line">
+                          {line}
+                        </p>
+                      ))}
+                      {!agentFirstRevealDone && agentFirstVisibleLines > 0 && (
+                        <span className="result-pill-typing" aria-hidden>
+                          ▍
+                        </span>
+                      )}
+                    </div>
+                  ) : (
+                    <span className="result-pill-text">{getResultPillContent()}</span>
+                  )}
                 </div>
                 {checkResult.otp && (
                   <div className="result-text-bottom">
                     OTP: <strong>{checkResult.otp}</strong>
                   </div>
                 )}
-                {isAgentType() && (
+                {isAgentType() && (normalizedType !== 'agent-first' || agentFirstRevealDone) && (
                   <div className="result-footer-text">CHÚC CÁC BẠN THÀNH CÔNG</div>
                 )}
               </>
